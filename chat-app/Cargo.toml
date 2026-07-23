@@ -1,5 +1,6 @@
 [package]
-name = "mi_proyecto_rust"       # Nombre de tu aplicación o biblioteca
+name = "chat-app"
+path = "ruta/a/tu/archivo_principal.rs"
 version = "0.1.0"               # Versión actual del proyecto (SemVer)
 edition = "2021"                # Edición de Rust utilizada (ej. 2015, 2018, 2021)
 authors = ["Tu Nombre <tu@email.com>"] # Lista de autores del proyecto
