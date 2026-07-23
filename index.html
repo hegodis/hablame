@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Blog Personal Online</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --bg: #f8f9fa;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+        body { background: var(--bg); color: #333; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        /* Tarjetas */
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-bottom: 15px; font-size: 1.2rem; }
+        
+        /* Perfil Local */
+        .profile-setup { display: flex; flex-direction: column; gap: 10px; }
+        .profile-display { display: flex; align-items: center; gap: 15px; }
+        .avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; background: #ddd; }
+        
+        /* Formulario de Post */
+        input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+        textarea { resize: vertical; min-height: 80px; }
+        input[type="file"] { display: none; }
+        .file-label { display: inline-block; padding: 8px 12px; background: #e9ecef; border: 1px dashed #999; border-radius: 6px; cursor: pointer; text-align: center; }
+        button { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        .post-form { display: flex; flex-direction: column; gap: 12px; }
+        
+        /* Feed de publicaciones */
+        .post { display: flex; flex-direction: column; gap: 12px; }
+        .post-header { display: flex; align-items: center; gap: 10px; }
+        .post-user { font-weight: bold; }
+        .post-img { width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; }
+        .post-actions { display: flex; gap: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+        .btn-action { background: none; color: #666; display: flex; align-items: center; gap: 5px; padding: 5px; border: none; cursor: pointer; }
+        .btn-action:hover { color: var(--primary); }
+        .btn-like.active { color: var(--success); }
+        .btn-dislike.active { color: var(--danger); }
+
+        /* Zona Global de Disqus */
+        #disqus_thread { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- SECCIÓN DE PERFIL LOCAL (Para tus posts) -->
+    <div class="card">
+        <div id="profile-view" class="profile-display" style="display: none;">
+            <img id="display-avatar" class="avatar" src="" alt="Avatar">
+            <div>
+                <h3 id="display-name">Usuario</h3>
+                <button onclick="editProfile()" style="padding: 3px 8px; font-size: 0.8rem; margin-top: 5px;">Editar Perfil Autor</button>
+            </div>
+        </div>
+        <div id="profile-edit" class="profile-setup">
+            <h2>Configura tu Perfil de Autor</h2>
+            <input type="text" id="username-input" placeholder="Tu nombre de usuario">
+            <label class="file-label">
+                📷 Seleccionar Foto de Perfil
+                <input type="file" id="avatar-input" accept="image/*">
+            </label>
+            <button onclick="saveProfile()">Guardar Perfil</button>
+        </div>
+    </div>
+
+    <!-- SECCIÓN CREAR POST -->
+    <div class="card">
+        <h2>Crear una publicación</h2>
+        <div class="post-form">
+            <textarea id="post-text" placeholder="¿Qué quieres compartir hoy de forma online?"></textarea>
+            <label class="file-label">
+                🖼️ Agregar Imagen al Post
+                <input type="file" id="post-file" accept="image/*">
+            </label>
+            <button onclick="createPost()">Publicar</button>
+        </div>
+    </div>
+
+    <!-- FEED DE PUBLICACIONES LOCALES -->
+    <div id="feed"></div>
+
+    <!-- SECCIÓN DE COMENTARIOS CHAT ONLINE GLOBAL -->
+    <h2>💬 Panel de Discusión en Vivo</h2>
+    <div id="disqus_thread"></div>
+</div>
+
+<script>
+    // Configuración LocalStorage para autoría local
+    let userProfile = JSON.parse(localStorage.getItem('userProfile')) || { name: 'Anónimo', avatar: 'https://flaticon.com' };
+    let posts = JSON.parse(localStorage.getItem('posts')) || [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+        updateProfileUI();
+        renderPosts();
+        loadDisqus();
+    });
+
+    function saveProfile() {
+        const name = document.getElementById('username-input').value.trim();
+        const fileInput = document.getElementById('avatar-input');
+        if (!name) return alert('Por favor, ingresa un nombre');
+        userProfile.name = name;
+
+        if (fileInput.files && fileInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                userProfile.avatar = e.target.result;
+                localStorage.setItem('userProfile', JSON.stringify(userProfile));
+                updateProfileUI();
+            }
+            reader.readAsDataURL(fileInput.files[0]);
+        } else {
+            localStorage.setItem('userProfile', JSON.stringify(userProfile));
+            updateProfileUI();
+        }
+    }
+
+    function updateProfileUI() {
+        if(localStorage.getItem('userProfile')) {
+            document.getElementById('profile-edit').style.display = 'none';
+            document.getElementById('profile-view').style.display = 'flex';
+            document.getElementById('display-name').innerText = userProfile.name;
+            document.getElementById('display-avatar').src = userProfile.avatar;
+        }
+    }
+
+    function editProfile() {
+        document.getElementById('profile-edit').style.display = 'flex';
+        document.getElementById('profile-view').style.display = 'none';
+        document.getElementById('username-input').value = userProfile.name;
+    }
+
+    function createPost() {
+        const text = document.getElementById('post-text').value.trim();
+        const fileInput = document.getElementById('post-file');
+        if (!text && !fileInput.files[0]) return alert('Escribe algo o sube una imagen');
+
+        const newPost = {
+            id: Date.now(),
+            user: userProfile.name,
+            avatar: userProfile.avatar,
+            text: text,
+            image: '',
+            likes: 0,
+            dislikes: 0,
+            userReaction: null
+        };
+
+        if (fileInput.files && fileInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                newPost.image = e.target.result;
+                posts.unshift(newPost);
+                saveAndRender();
+                resetForm();
+            }
+            reader.readAsDataURL(fileInput.files[0]);
+        } else {
+            posts.unshift(newPost);
+            saveAndRender();
+            resetForm();
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('post-text').value = '';
+        document.getElementById('post-file').value = '';
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('posts', JSON.stringify(posts));
+        renderPosts();
+    }
+
+    function renderPosts() {
+        const feed = document.getElementById('feed');
+        feed.innerHTML = '';
+        posts.forEach(post => {
+            const postCard = document.createElement('div');
+            postCard.className = 'card post';
+            let imgHTML = post.image ? `<img class="post-img" src="${post.image}" alt="Imagen del post">` : '';
+            postCard.innerHTML = `
+                <div class="post-header">
+                    <img class="avatar" src="${post.avatar}" style="width:40px; height:40px;">
+                    <span class="post-user">${post.user}</span>
+                </div>
+                <p>${post.text}</p>
+                ${imgHTML}
+                <div class="post-actions">
+                    <button class="btn-action btn-like ${post.userReaction === 'like' ? 'active' : ''}" onclick="handleReaction(${post.id}, 'like')">
+                        👍 <span>${post.likes}</span>
+                    </button>
+                    <button class="btn-action btn-dislike ${post.userReaction === 'dislike' ? 'active' : ''}" onclick="handleReaction(${post.id}, 'dislike')">
+                        👎 <span>${post.dislikes}</span>
+                    </button>
+                </div>
+            `;
+            feed.appendChild(postCard);
+        });
+    }
+
+    function handleReaction(postId, type) {
+        posts = posts.map(post => {
+            if (post.id === postId) {
+                if (post.userReaction === type) {
+                    post[type === 'like' ? 'likes' : 'dislikes']--;
+                    post.userReaction = null;
+                } else {
+                    if (post.userReaction) {
+                        post[post.userReaction === 'like' ? 'likes' : 'dislikes']--;
+                    }
+                    post[type === 'like' ? 'likes' : 'dislikes']++;
+                    post.userReaction = type;
+                }
+            }
+            return post;
+        });
+        saveAndRender();
+    }
+
+    // ==========================================
+    // INTEGRACIÓN CON DISQUS ONLINE EN VIVO
+    // ==========================================
+    function loadDisqus() {
+        var d = document, s = d.createElement('script');
+        
+        // REEMPLAZA EL TEXTO ABAJO CON TU NOMBRE CORTO DE DISQUS
+        s.src = 'https://hegodisgonzalez://disqus.com'; 
+        
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    }
